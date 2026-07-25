@@ -228,12 +228,17 @@ class FileListActivity : AppCompatActivity() {
             pathText.text = "Search: $query"
             val results = mutableListOf<FileItem>()
             fun scan(dir: File) {
-                val list = dir.listFiles() ?: return
+                if (dir.name == "Android") return
+                val list = try { dir.listFiles() } catch (e: Exception) { null } ?: return
                 for (f in list) {
-                    if (f.name.lowercase().contains(query)) {
-                        results.add(FileItem(f, f.isDirectory, f.length(), f.lastModified()))
+                    try {
+                        if (f.name.lowercase().contains(query)) {
+                            results.add(FileItem(f, f.isDirectory, f.length(), f.lastModified()))
+                        }
+                        if (f.isDirectory) scan(f)
+                    } catch (e: Exception) {
+                        // skip inaccessible file/folder
                     }
-                    if (f.isDirectory) scan(f)
                 }
             }
             scan(Environment.getExternalStorageDirectory())
@@ -262,10 +267,15 @@ class FileListActivity : AppCompatActivity() {
         } else {
             val results = mutableListOf<FileItem>()
             fun scan(dir: File) {
-                val list = dir.listFiles() ?: return
+                if (dir.name == "Android") return
+                val list = try { dir.listFiles() } catch (e: Exception) { null } ?: return
                 for (f in list) {
-                    if (f.isDirectory) scan(f)
-                    else if (matchesFilter(f)) results.add(FileItem(f, false, f.length(), f.lastModified()))
+                    try {
+                        if (f.isDirectory) scan(f)
+                        else if (matchesFilter(f)) results.add(FileItem(f, false, f.length(), f.lastModified()))
+                    } catch (e: Exception) {
+                        // skip inaccessible file/folder
+                    }
                 }
             }
             scan(Environment.getExternalStorageDirectory())
@@ -390,8 +400,13 @@ class FileListActivity : AppCompatActivity() {
         val sizeStr = if (file.isDirectory) {
             var total = 0L
             fun sumSize(f: File) {
-                f.listFiles()?.forEach {
-                    if (it.isDirectory) sumSize(it) else total += it.length()
+                val list = try { f.listFiles() } catch (e: Exception) { null } ?: return
+                list.forEach {
+                    try {
+                        if (it.isDirectory) sumSize(it) else total += it.length()
+                    } catch (e: Exception) {
+                        // skip
+                    }
                 }
             }
             sumSize(file)
