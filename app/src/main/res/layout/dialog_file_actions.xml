@@ -45,6 +45,25 @@
         android:padding="12dp" />
 
     <TextView
+        android:id="@+id/actionExtract"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Extract Here"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:padding="12dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/actionCompress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Compress to ZIP"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:padding="12dp" />
+
+    <TextView
         android:id="@+id/actionFavorite"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

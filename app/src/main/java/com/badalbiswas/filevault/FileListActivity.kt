@@ -216,6 +216,20 @@ class FileListActivity : AppCompatActivity() {
             dialog.dismiss()
         }
 
+        val extractLabel = view.findViewById<TextView>(R.id.actionExtract)
+        if (item.file.extension.lowercase() in setOf("zip")) {
+            extractLabel.visibility = android.view.View.VISIBLE
+            extractLabel.setOnClickListener {
+                dialog.dismiss()
+                extractZipFile(item.file)
+            }
+        }
+
+        view.findViewById<TextView>(R.id.actionCompress).setOnClickListener {
+            dialog.dismiss()
+            compressFile(item.file)
+        }
+
         val favLabel = view.findViewById<TextView>(R.id.actionFavorite)
         val isFav = FavoritesManager.isFavorite(this, item.file.absolutePath)
         favLabel.text = if (isFav) "Remove from Favorites" else "Add to Favorites"
@@ -296,6 +310,39 @@ class FileListActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Cannot share file", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun extractZipFile(zipFile: File) {
+        Toast.makeText(this, "Extracting...", Toast.LENGTH_SHORT).show()
+        Thread {
+            val destDir = File(currentDir, zipFile.nameWithoutExtension)
+            destDir.mkdirs()
+            val success = ZipManager.extractZip(zipFile, destDir)
+            runOnUiThread {
+                if (success) {
+                    Toast.makeText(this, "Extracted to ${destDir.name}", Toast.LENGTH_SHORT).show()
+                    loadFiles()
+                } else {
+                    Toast.makeText(this, "Extraction failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun compressFile(file: File) {
+        Toast.makeText(this, "Compressing...", Toast.LENGTH_SHORT).show()
+        Thread {
+            val zipFile = File(currentDir, "${file.nameWithoutExtension.ifEmpty { file.name }}.zip")
+            val success = ZipManager.compressToZip(file, zipFile)
+            runOnUiThread {
+                if (success) {
+                    Toast.makeText(this, "Compressed to ${zipFile.name}", Toast.LENGTH_SHORT).show()
+                    loadFiles()
+                } else {
+                    Toast.makeText(this, "Compression failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
     }
 
     fun pasteClipboard() {
