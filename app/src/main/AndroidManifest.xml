@@ -23,6 +23,9 @@
         <activity
             android:name=".FileListActivity"
             android:exported="false" />
+        <activity
+            android:name=".TrashActivity"
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

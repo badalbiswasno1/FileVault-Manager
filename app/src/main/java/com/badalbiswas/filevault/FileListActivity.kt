@@ -259,11 +259,11 @@ class FileListActivity : AppCompatActivity() {
     private fun confirmDelete(file: File) {
         AlertDialog.Builder(this)
             .setTitle("Delete")
-            .setMessage("Delete \"${file.name}\"? This cannot be undone.")
+            .setMessage("Move \"${file.name}\" to Recently Deleted?")
             .setPositiveButton("Delete") { _, _ ->
-                val success = FileOperations.deleteFile(file)
+                val success = TrashManager.moveToTrash(this, file)
                 if (success) {
-                    Toast.makeText(this, "Deleted", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Moved to Recently Deleted", Toast.LENGTH_SHORT).show()
                     loadFiles()
                 } else {
                     Toast.makeText(this, "Delete failed", Toast.LENGTH_SHORT).show()

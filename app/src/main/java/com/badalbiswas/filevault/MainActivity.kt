@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
             row.findViewById<android.widget.ImageView>(R.id.locIcon).setImageResource(icon)
             row.setOnClickListener {
                 if (type == "TRASH") {
-                    android.widget.Toast.makeText(this, "Recently Deleted: Coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this, TrashActivity::class.java))
                 } else {
                     val intent = Intent(this, FileListActivity::class.java)
                     intent.putExtra("filterType", type)
