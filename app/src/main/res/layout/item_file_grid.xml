@@ -13,11 +13,25 @@
         android:layout_gravity="end"
         android:visibility="gone" />
 
-    <ImageView
-        android:id="@+id/gridIcon"
+    <FrameLayout
         android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:scaleType="centerCrop" />
+        android:layout_height="56dp">
+
+        <ImageView
+            android:id="@+id/gridIcon"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:scaleType="centerCrop" />
+
+        <ImageView
+            android:id="@+id/gridPlayOverlay"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_play_overlay"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
     <TextView
         android:id="@+id/gridName"
