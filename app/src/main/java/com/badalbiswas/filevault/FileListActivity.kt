@@ -113,6 +113,35 @@ class FileListActivity : AppCompatActivity() {
     }
 
     private fun loadFiles() {
+        if (filterType == "FAVORITES") {
+            pathText.text = "Favorites"
+            val favPaths = FavoritesManager.getFavorites(this)
+            val files = favPaths.mapNotNull { p ->
+                val f = File(p)
+                if (f.exists()) FileItem(f, f.isDirectory, f.length(), f.lastModified()) else null
+            }.sortedBy { it.file.name.lowercase() }
+            adapter.updateList(files)
+            return
+        }
+
+        if (filterType == "SEARCH") {
+            val query = intent.getStringExtra("searchQuery")?.lowercase() ?: ""
+            pathText.text = "Search: $query"
+            val results = mutableListOf<FileItem>()
+            fun scan(dir: File) {
+                val list = dir.listFiles() ?: return
+                for (f in list) {
+                    if (f.name.lowercase().contains(query)) {
+                        results.add(FileItem(f, f.isDirectory, f.length(), f.lastModified()))
+                    }
+                    if (f.isDirectory) scan(f)
+                }
+            }
+            scan(Environment.getExternalStorageDirectory())
+            adapter.updateList(results.sortedBy { it.file.name.lowercase() })
+            return
+        }
+
         pathText.text = currentDir.absolutePath
 
         val files = if (filterType == "ALL") {
@@ -173,6 +202,21 @@ class FileListActivity : AppCompatActivity() {
             clipboardIsCut = true
             Toast.makeText(this, "Ready to move. Open destination folder and use Paste.", Toast.LENGTH_LONG).show()
             dialog.dismiss()
+        }
+
+        val favLabel = view.findViewById<TextView>(R.id.actionFavorite)
+        val isFav = FavoritesManager.isFavorite(this, item.file.absolutePath)
+        favLabel.text = if (isFav) "Remove from Favorites" else "Add to Favorites"
+        favLabel.setOnClickListener {
+            if (FavoritesManager.isFavorite(this, item.file.absolutePath)) {
+                FavoritesManager.removeFavorite(this, item.file.absolutePath)
+                Toast.makeText(this, "Removed from Favorites", Toast.LENGTH_SHORT).show()
+            } else {
+                FavoritesManager.addFavorite(this, item.file.absolutePath)
+                Toast.makeText(this, "Added to Favorites", Toast.LENGTH_SHORT).show()
+            }
+            dialog.dismiss()
+            if (filterType == "FAVORITES") loadFiles()
         }
 
         view.findViewById<TextView>(R.id.actionShare).setOnClickListener {

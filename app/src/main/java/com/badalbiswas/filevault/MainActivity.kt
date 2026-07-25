@@ -37,6 +37,18 @@ class MainActivity : AppCompatActivity() {
         setupCategories()
         setupLocations()
         checkPermission()
+
+        val searchBox = findViewById<android.widget.EditText>(R.id.searchBox)
+        searchBox.setOnEditorActionListener { v, actionId, event ->
+            val query = v.text.toString().trim()
+            if (query.isNotEmpty()) {
+                val intent = Intent(this, FileListActivity::class.java)
+                intent.putExtra("filterType", "SEARCH")
+                intent.putExtra("searchQuery", query)
+                startActivity(intent)
+            }
+            true
+        }
     }
 
     override fun onResume() {
@@ -69,23 +81,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupLocations() {
         val locations = listOf(
-            Triple("My Phone", R.drawable.ic_phone, Environment.getExternalStorageDirectory().absolutePath),
-            Triple("Recently Deleted", R.drawable.ic_trash, null),
-            Triple("Favorites", R.drawable.ic_star, null)
+            Triple("My Phone", R.drawable.ic_phone, "ALL"),
+            Triple("Recently Deleted", R.drawable.ic_trash, "TRASH"),
+            Triple("Favorites", R.drawable.ic_star, "FAVORITES")
         )
         locationsContainer.removeAllViews()
-        for ((label, icon, path) in locations) {
+        for ((label, icon, type) in locations) {
             val row = layoutInflater.inflate(R.layout.item_location, locationsContainer, false)
             row.findViewById<TextView>(R.id.locLabel).text = label
             row.findViewById<android.widget.ImageView>(R.id.locIcon).setImageResource(icon)
             row.setOnClickListener {
-                if (path != null) {
-                    val intent = Intent(this, FileListActivity::class.java)
-                    intent.putExtra("filterType", "ALL")
-                    intent.putExtra("startPath", path)
-                    startActivity(intent)
+                if (type == "TRASH") {
+                    android.widget.Toast.makeText(this, "Recently Deleted: Coming soon", android.widget.Toast.LENGTH_SHORT).show()
                 } else {
-                    android.widget.Toast.makeText(this, "$label: Coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this, FileListActivity::class.java)
+                    intent.putExtra("filterType", type)
+                    if (type == "ALL") {
+                        intent.putExtra("startPath", Environment.getExternalStorageDirectory().absolutePath)
+                    }
+                    startActivity(intent)
                 }
             }
             locationsContainer.addView(row)
