@@ -69,9 +69,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupLocations() {
         val locations = listOf(
-            Triple("My Phone", android.R.drawable.stat_sys_data_bluetooth, Environment.getExternalStorageDirectory().absolutePath),
-            Triple("Recently Deleted", android.R.drawable.ic_menu_delete, null),
-            Triple("Favorites", android.R.drawable.btn_star_big_off, null)
+            Triple("My Phone", R.drawable.ic_phone, Environment.getExternalStorageDirectory().absolutePath),
+            Triple("Recently Deleted", R.drawable.ic_trash, null),
+            Triple("Favorites", R.drawable.ic_star, null)
         )
         locationsContainer.removeAllViews()
         for ((label, icon, path) in locations) {
@@ -84,6 +84,8 @@ class MainActivity : AppCompatActivity() {
                     intent.putExtra("filterType", "ALL")
                     intent.putExtra("startPath", path)
                     startActivity(intent)
+                } else {
+                    android.widget.Toast.makeText(this, "$label: Coming soon", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
             locationsContainer.addView(row)
