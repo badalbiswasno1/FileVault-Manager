@@ -17,64 +17,91 @@ class FileAdapter(
     private var items: List<FileItem>,
     private val onClick: (FileItem) -> Unit,
     private val onLongClick: ((FileItem) -> Unit)? = null
-) : RecyclerView.Adapter<FileAdapter.ViewHolder>() {
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     var selectionMode = false
         private set
+    var isGridMode = false
+        private set
     val selectedItems = mutableSetOf<String>()
 
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    companion object {
+        private const val TYPE_LIST = 0
+        private const val TYPE_GRID = 1
+    }
+
+    class ListViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val icon: ImageView = view.findViewById(R.id.fileIcon)
         val name: TextView = view.findViewById(R.id.fileName)
         val info: TextView = view.findViewById(R.id.fileInfo)
         val checkbox: CheckBox = view.findViewById(R.id.fileCheckbox)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_file, parent, false)
-        return ViewHolder(view)
+    class GridViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val icon: ImageView = view.findViewById(R.id.gridIcon)
+        val name: TextView = view.findViewById(R.id.gridName)
+        val checkbox: CheckBox = view.findViewById(R.id.gridCheckbox)
     }
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = items[position]
-        holder.name.text = item.file.name
+    override fun getItemViewType(position: Int): Int {
+        return if (isGridMode) TYPE_GRID else TYPE_LIST
+    }
 
-        val ext = item.file.extension.lowercase()
-        val isImage = ext in setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")
-        if (!item.isDirectory && isImage) {
-            val thumb = loadThumbnail(item.file)
-            if (thumb != null) {
-                holder.icon.setImageBitmap(thumb)
-            } else {
-                holder.icon.setImageResource(getIconForFile(item))
-            }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return if (viewType == TYPE_GRID) {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_file_grid, parent, false)
+            GridViewHolder(view)
         } else {
-            holder.icon.setImageResource(getIconForFile(item))
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_file, parent, false)
+            ListViewHolder(view)
         }
+    }
 
-        val sizeText = if (item.isDirectory) "Folder" else formatSize(item.size)
-        val dateText = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(item.lastModified))
-        holder.info.text = "$sizeText  •  $dateText"
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val item = items[position]
+        val iconRes = getIconForFile(item)
+        val thumb = if (!item.isDirectory && isImageFile(item)) loadThumbnail(item.file) else null
 
-        holder.checkbox.visibility = if (selectionMode) View.VISIBLE else View.GONE
-        holder.checkbox.setOnCheckedChangeListener(null)
-        holder.checkbox.isChecked = selectedItems.contains(item.file.absolutePath)
-        holder.checkbox.setOnCheckedChangeListener { _, isChecked ->
-            toggleSelection(item, isChecked)
-        }
+        when (holder) {
+            is ListViewHolder -> {
+                holder.name.text = item.file.name
+                if (thumb != null) holder.icon.setImageBitmap(thumb) else holder.icon.setImageResource(iconRes)
+                val sizeText = if (item.isDirectory) "Folder" else formatSize(item.size)
+                val dateText = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(item.lastModified))
+                holder.info.text = "$sizeText  •  $dateText"
 
-        holder.itemView.setOnClickListener {
-            if (selectionMode) {
-                holder.checkbox.isChecked = !holder.checkbox.isChecked
-            } else {
-                onClick(item)
+                holder.checkbox.visibility = if (selectionMode) View.VISIBLE else View.GONE
+                holder.checkbox.setOnCheckedChangeListener(null)
+                holder.checkbox.isChecked = selectedItems.contains(item.file.absolutePath)
+                holder.checkbox.setOnCheckedChangeListener { _, isChecked -> toggleSelection(item, isChecked) }
+
+                holder.itemView.setOnClickListener {
+                    if (selectionMode) holder.checkbox.isChecked = !holder.checkbox.isChecked
+                    else onClick(item)
+                }
+                holder.itemView.setOnLongClickListener {
+                    if (!selectionMode) onLongClick?.invoke(item)
+                    true
+                }
             }
-        }
-        holder.itemView.setOnLongClickListener {
-            if (!selectionMode) {
-                onLongClick?.invoke(item)
+            is GridViewHolder -> {
+                holder.name.text = item.file.name
+                if (thumb != null) holder.icon.setImageBitmap(thumb) else holder.icon.setImageResource(iconRes)
+
+                holder.checkbox.visibility = if (selectionMode) View.VISIBLE else View.GONE
+                holder.checkbox.setOnCheckedChangeListener(null)
+                holder.checkbox.isChecked = selectedItems.contains(item.file.absolutePath)
+                holder.checkbox.setOnCheckedChangeListener { _, isChecked -> toggleSelection(item, isChecked) }
+
+                holder.itemView.setOnClickListener {
+                    if (selectionMode) holder.checkbox.isChecked = !holder.checkbox.isChecked
+                    else onClick(item)
+                }
+                holder.itemView.setOnLongClickListener {
+                    if (!selectionMode) onLongClick?.invoke(item)
+                    true
+                }
             }
-            true
         }
     }
 
@@ -91,6 +118,11 @@ class FileAdapter(
         notifyDataSetChanged()
     }
 
+    fun setGridMode(enabled: Boolean) {
+        isGridMode = enabled
+        notifyDataSetChanged()
+    }
+
     private fun toggleSelection(item: FileItem, selected: Boolean) {
         if (selected) selectedItems.add(item.file.absolutePath)
         else selectedItems.remove(item.file.absolutePath)
@@ -98,6 +130,11 @@ class FileAdapter(
 
     fun getSelectedFiles(): List<java.io.File> {
         return items.filter { selectedItems.contains(it.file.absolutePath) }.map { it.file }
+    }
+
+    private fun isImageFile(item: FileItem): Boolean {
+        val ext = item.file.extension.lowercase()
+        return ext in setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")
     }
 
     private fun loadThumbnail(file: java.io.File): Bitmap? {

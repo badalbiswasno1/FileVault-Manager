@@ -42,6 +42,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, StorageStatsActivity::class.java))
         }
 
+        findViewById<android.view.View>(R.id.settingsButton).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         val searchBox = findViewById<android.widget.EditText>(R.id.searchBox)
         searchBox.setOnEditorActionListener { v, actionId, event ->
             val query = v.text.toString().trim()

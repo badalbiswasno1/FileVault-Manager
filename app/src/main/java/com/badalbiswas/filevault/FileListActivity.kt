@@ -5,6 +5,8 @@ import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.Environment
 import android.view.Gravity
@@ -19,6 +21,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.File
@@ -34,7 +37,7 @@ class FileListActivity : AppCompatActivity() {
     private var currentDir: File = Environment.getExternalStorageDirectory()
     private var filterType: String = "ALL"
     private var sortMode: String = "NAME"
-    private var showHidden: Boolean = false
+    private var isGridMode: Boolean = false
 
     private val imageExt = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")
     private val videoExt = setOf("mp4", "mkv", "avi", "mov", "3gp", "webm")
@@ -94,6 +97,11 @@ class FileListActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        loadFiles()
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_file_list, menu)
         return true
@@ -101,12 +109,15 @@ class FileListActivity : AppCompatActivity() {
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         menu.findItem(R.id.action_paste)?.isVisible = (clipboardFile != null || batchClipboard != null)
-        menu.findItem(R.id.action_hidden)?.isChecked = showHidden
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
+            R.id.action_filter -> {
+                showViewSortDialog(findViewById(android.R.id.content))
+                return true
+            }
             R.id.action_paste -> {
                 pasteClipboard()
                 return true
@@ -115,30 +126,58 @@ class FileListActivity : AppCompatActivity() {
                 enterSelectionMode()
                 return true
             }
-            R.id.action_sort -> {
-                showSortDialog()
-                return true
-            }
-            R.id.action_hidden -> {
-                showHidden = !showHidden
-                item.isChecked = showHidden
-                loadFiles()
-                return true
-            }
         }
         return super.onOptionsItemSelected(item)
     }
 
-    private fun showSortDialog() {
-        val options = arrayOf("Name", "Date (Newest first)", "Size (Largest first)")
-        val modes = arrayOf("NAME", "DATE", "SIZE")
-        AlertDialog.Builder(this)
-            .setTitle("Sort by")
-            .setItems(options) { _, which ->
-                sortMode = modes[which]
-                loadFiles()
-            }
-            .show()
+    private fun showViewSortDialog(anchor: View) {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_view_sort, null)
+        dialog.setContentView(view)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        dialog.window?.setGravity(Gravity.TOP or Gravity.END)
+        val params = dialog.window?.attributes
+        params?.y = 150
+        params?.x = 16
+        dialog.window?.attributes = params
+
+        fun refreshChecks() {
+            view.findViewById<TextView>(R.id.checkList).text = if (!isGridMode) "✓" else ""
+            view.findViewById<TextView>(R.id.checkGrid).text = if (isGridMode) "✓" else ""
+        }
+        refreshChecks()
+
+        view.findViewById<View>(R.id.viewList).setOnClickListener {
+            isGridMode = false
+            recyclerView.layoutManager = LinearLayoutManager(this)
+            adapter.setGridMode(false)
+            refreshChecks()
+        }
+        view.findViewById<View>(R.id.viewGrid).setOnClickListener {
+            isGridMode = true
+            recyclerView.layoutManager = GridLayoutManager(this, 3)
+            adapter.setGridMode(true)
+            refreshChecks()
+        }
+        view.findViewById<View>(R.id.sortName).setOnClickListener {
+            sortMode = "NAME"
+            loadFiles()
+            dialog.dismiss()
+        }
+        view.findViewById<View>(R.id.sortSize).setOnClickListener {
+            sortMode = "SIZE"
+            loadFiles()
+            dialog.dismiss()
+        }
+        view.findViewById<View>(R.id.sortDate).setOnClickListener {
+            sortMode = "DATE"
+            loadFiles()
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     override fun onBackPressed() {
@@ -170,6 +209,8 @@ class FileListActivity : AppCompatActivity() {
     }
 
     private fun loadFiles() {
+        val showHidden = AppPreferences.getShowHidden(this)
+
         if (filterType == "FAVORITES") {
             pathText.text = "Favorites"
             val favPaths = FavoritesManager.getFavorites(this)
