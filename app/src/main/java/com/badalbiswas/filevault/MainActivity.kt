@@ -38,6 +38,10 @@ class MainActivity : AppCompatActivity() {
         setupLocations()
         checkPermission()
 
+        findViewById<android.view.View>(R.id.localFilesCard).setOnClickListener {
+            startActivity(Intent(this, StorageStatsActivity::class.java))
+        }
+
         val searchBox = findViewById<android.widget.EditText>(R.id.searchBox)
         searchBox.setOnEditorActionListener { v, actionId, event ->
             val query = v.text.toString().trim()

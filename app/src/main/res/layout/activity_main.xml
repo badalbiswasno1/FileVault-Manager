@@ -34,11 +34,14 @@
             android:layout_marginBottom="16dp" />
 
         <LinearLayout
+            android:id="@+id/localFilesCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="@drawable/bg_card_rounded"
             android:padding="16dp"
+            android:clickable="true"
+            android:focusable="true"
             android:layout_marginBottom="16dp">
 
             <LinearLayout
