@@ -30,10 +30,7 @@ class FileAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         holder.name.text = item.file.name
-        holder.icon.setImageResource(
-            if (item.isDirectory) android.R.drawable.ic_menu_agenda
-            else android.R.drawable.ic_menu_save
-        )
+        holder.icon.setImageResource(getIconForFile(item))
         val sizeText = if (item.isDirectory) "Folder" else formatSize(item.size)
         val dateText = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(item.lastModified))
         holder.info.text = "$sizeText  •  $dateText"
@@ -49,6 +46,23 @@ class FileAdapter(
     fun updateList(newItems: List<FileItem>) {
         items = newItems
         notifyDataSetChanged()
+    }
+
+    private fun getIconForFile(item: FileItem): Int {
+        if (item.isDirectory) return R.drawable.ic_file_folder
+        val ext = item.file.extension.lowercase()
+        return when (ext) {
+            "jpg", "jpeg", "png", "gif", "webp", "bmp", "heic" -> R.drawable.ic_file_image
+            "mp4", "mkv", "avi", "mov", "3gp", "webm" -> R.drawable.ic_file_video
+            "mp3", "wav", "m4a", "ogg", "flac" -> R.drawable.ic_file_audio
+            "pdf" -> R.drawable.ic_file_pdf
+            "doc", "docx" -> R.drawable.ic_file_doc
+            "xls", "xlsx", "csv" -> R.drawable.ic_file_excel
+            "ppt", "pptx" -> R.drawable.ic_file_ppt
+            "zip", "rar", "7z" -> R.drawable.ic_file_zip
+            "apk" -> R.drawable.ic_file_apk
+            else -> R.drawable.ic_file_generic
+        }
     }
 
     private fun formatSize(size: Long): String {
