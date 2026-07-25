@@ -18,6 +18,24 @@
         android:ellipsize="middle" />
 
     <TextView
+        android:id="@+id/actionInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="File Info"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:padding="12dp" />
+
+    <TextView
+        android:id="@+id/actionCopyPath"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Copy Path"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:padding="12dp" />
+
+    <TextView
         android:id="@+id/actionRename"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

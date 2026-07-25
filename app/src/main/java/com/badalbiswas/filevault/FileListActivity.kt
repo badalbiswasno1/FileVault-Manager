@@ -1,15 +1,17 @@
 package com.badalbiswas.filevault
 
 import android.app.AlertDialog
-import android.view.Menu
-import android.view.MenuItem
 import android.app.Dialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.EditText
@@ -26,17 +28,29 @@ class FileListActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var pathText: TextView
     private lateinit var adapter: FileAdapter
+    private lateinit var batchBar: View
+    private lateinit var emptyStateText: TextView
+
     private var currentDir: File = Environment.getExternalStorageDirectory()
     private var filterType: String = "ALL"
+    private var sortMode: String = "NAME"
+    private var showHidden: Boolean = false
 
     private val imageExt = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")
     private val videoExt = setOf("mp4", "mkv", "avi", "mov", "3gp", "webm")
     private val docExt = setOf("pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "pptx")
     private val audioExt = setOf("mp3", "wav", "m4a", "ogg", "flac")
 
+    private val previewableExt = setOf(
+        "pdf", "jpg", "jpeg", "png", "gif", "webp", "bmp",
+        "txt", "log", "md", "json", "xml", "java", "kt", "py", "js", "html", "css", "gradle", "yml", "yaml", "csv"
+    )
+
     companion object {
         var clipboardFile: File? = null
         var clipboardIsCut: Boolean = false
+        var batchClipboard: List<File>? = null
+        var batchClipboardCut: Boolean = false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +63,7 @@ class FileListActivity : AppCompatActivity() {
 
         recyclerView = findViewById(R.id.fileRecyclerView)
         pathText = findViewById(R.id.pathText)
+        emptyStateText = findViewById(R.id.emptyStateText)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
         adapter = FileAdapter(
@@ -68,6 +83,15 @@ class FileListActivity : AppCompatActivity() {
 
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
+
+        batchBar = findViewById(R.id.batchActionsBar)
+        setupBatchBar()
+
+        val fab = findViewById<TextView>(R.id.fabNewFolder)
+        fab.visibility = if (filterType == "ALL") View.VISIBLE else View.GONE
+        fab.setOnClickListener {
+            showNewFolderDialog()
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -76,19 +100,52 @@ class FileListActivity : AppCompatActivity() {
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        menu.findItem(R.id.action_paste)?.isVisible = (clipboardFile != null)
+        menu.findItem(R.id.action_paste)?.isVisible = (clipboardFile != null || batchClipboard != null)
+        menu.findItem(R.id.action_hidden)?.isChecked = showHidden
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == R.id.action_paste) {
-            pasteClipboard()
-            return true
+        when (item.itemId) {
+            R.id.action_paste -> {
+                pasteClipboard()
+                return true
+            }
+            R.id.action_select -> {
+                enterSelectionMode()
+                return true
+            }
+            R.id.action_sort -> {
+                showSortDialog()
+                return true
+            }
+            R.id.action_hidden -> {
+                showHidden = !showHidden
+                item.isChecked = showHidden
+                loadFiles()
+                return true
+            }
         }
         return super.onOptionsItemSelected(item)
     }
 
+    private fun showSortDialog() {
+        val options = arrayOf("Name", "Date (Newest first)", "Size (Largest first)")
+        val modes = arrayOf("NAME", "DATE", "SIZE")
+        AlertDialog.Builder(this)
+            .setTitle("Sort by")
+            .setItems(options) { _, which ->
+                sortMode = modes[which]
+                loadFiles()
+            }
+            .show()
+    }
+
     override fun onBackPressed() {
+        if (adapter.selectionMode) {
+            exitSelectionMode()
+            return
+        }
         val parent = currentDir.parentFile
         if (currentDir != Environment.getExternalStorageDirectory() && parent != null && filterType == "ALL") {
             currentDir = parent
@@ -121,6 +178,7 @@ class FileListActivity : AppCompatActivity() {
                 if (f.exists()) FileItem(f, f.isDirectory, f.length(), f.lastModified()) else null
             }.sortedBy { it.file.name.lowercase() }
             adapter.updateList(files)
+            emptyStateText.visibility = if (files.isEmpty()) View.VISIBLE else View.GONE
             return
         }
 
@@ -138,16 +196,28 @@ class FileListActivity : AppCompatActivity() {
                 }
             }
             scan(Environment.getExternalStorageDirectory())
-            adapter.updateList(results.sortedBy { it.file.name.lowercase() })
+            val files = results.sortedBy { it.file.name.lowercase() }
+            adapter.updateList(files)
+            emptyStateText.visibility = if (files.isEmpty()) View.VISIBLE else View.GONE
             return
         }
 
         pathText.text = currentDir.absolutePath
 
         val files = if (filterType == "ALL") {
-            currentDir.listFiles()?.map {
+            currentDir.listFiles()?.filter {
+                showHidden || !it.name.startsWith(".")
+            }?.map {
                 FileItem(it, it.isDirectory, it.length(), it.lastModified())
-            }?.sortedWith(compareByDescending<FileItem> { it.isDirectory }.thenBy { it.file.name.lowercase() }) ?: emptyList()
+            }?.sortedWith(
+                compareByDescending<FileItem> { it.isDirectory }.thenBy {
+                    when (sortMode) {
+                        "DATE" -> -it.lastModified
+                        "SIZE" -> -it.size
+                        else -> 0L
+                    }
+                }.thenBy { it.file.name.lowercase() }
+            ) ?: emptyList()
         } else {
             val results = mutableListOf<FileItem>()
             fun scan(dir: File) {
@@ -161,12 +231,8 @@ class FileListActivity : AppCompatActivity() {
             results.sortedByDescending { it.lastModified }
         }
         adapter.updateList(files)
+        emptyStateText.visibility = if (files.isEmpty()) View.VISIBLE else View.GONE
     }
-
-    private val previewableExt = setOf(
-        "pdf", "jpg", "jpeg", "png", "gif", "webp", "bmp",
-        "txt", "log", "md", "json", "xml", "java", "kt", "py", "js", "html", "css", "gradle", "yml", "yaml", "csv"
-    )
 
     private fun openFile(file: File) {
         val ext = file.extension.lowercase()
@@ -197,6 +263,19 @@ class FileListActivity : AppCompatActivity() {
 
         view.findViewById<TextView>(R.id.actionFileName).text = item.file.name
 
+        view.findViewById<TextView>(R.id.actionInfo).setOnClickListener {
+            dialog.dismiss()
+            showFileInfoDialog(item.file)
+        }
+
+        view.findViewById<TextView>(R.id.actionCopyPath).setOnClickListener {
+            dialog.dismiss()
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("File Path", item.file.absolutePath)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this, "Path copied", Toast.LENGTH_SHORT).show()
+        }
+
         view.findViewById<TextView>(R.id.actionRename).setOnClickListener {
             dialog.dismiss()
             showRenameDialog(item.file)
@@ -217,8 +296,8 @@ class FileListActivity : AppCompatActivity() {
         }
 
         val extractLabel = view.findViewById<TextView>(R.id.actionExtract)
-        if (item.file.extension.lowercase() in setOf("zip")) {
-            extractLabel.visibility = android.view.View.VISIBLE
+        if (item.file.extension.lowercase() == "zip") {
+            extractLabel.visibility = View.VISIBLE
             extractLabel.setOnClickListener {
                 dialog.dismiss()
                 extractZipFile(item.file)
@@ -258,6 +337,51 @@ class FileListActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    private fun showFileInfoDialog(file: File) {
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_file_info, null)
+        view.findViewById<TextView>(R.id.infoName).text = file.name
+        view.findViewById<TextView>(R.id.infoType).text = if (file.isDirectory) {
+            val count = file.listFiles()?.size ?: 0
+            "Type: Folder ($count items)"
+        } else {
+            "Type: ${file.extension.uppercase().ifEmpty { "File" }}"
+        }
+        val sizeStr = if (file.isDirectory) {
+            var total = 0L
+            fun sumSize(f: File) {
+                f.listFiles()?.forEach {
+                    if (it.isDirectory) sumSize(it) else total += it.length()
+                }
+            }
+            sumSize(file)
+            formatSizeStr(total)
+        } else {
+            formatSizeStr(file.length())
+        }
+        view.findViewById<TextView>(R.id.infoSize).text = "Size: $sizeStr"
+        val dateStr = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(file.lastModified()))
+        view.findViewById<TextView>(R.id.infoModified).text = "Modified: $dateStr"
+        view.findViewById<TextView>(R.id.infoPath).text = "Path: ${file.absolutePath}"
+
+        AlertDialog.Builder(this)
+            .setTitle("File Info")
+            .setView(view)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun formatSizeStr(size: Long): String {
+        if (size <= 0) return "0 B"
+        val units = arrayOf("B", "KB", "MB", "GB")
+        var s = size.toDouble()
+        var unitIndex = 0
+        while (s >= 1024 && unitIndex < units.size - 1) {
+            s /= 1024
+            unitIndex++
+        }
+        return String.format("%.2f %s", s, units[unitIndex])
+    }
+
     private fun showRenameDialog(file: File) {
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_rename, null)
         val input = view.findViewById<EditText>(R.id.renameInput)
@@ -275,6 +399,32 @@ class FileListActivity : AppCompatActivity() {
                         loadFiles()
                     } else {
                         Toast.makeText(this, "Rename failed. Name may already exist.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showNewFolderDialog() {
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_rename, null)
+        val input = view.findViewById<EditText>(R.id.renameInput)
+        input.hint = "Folder name"
+
+        AlertDialog.Builder(this)
+            .setTitle("New Folder")
+            .setView(view)
+            .setPositiveButton("Create") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) {
+                    val newDir = File(currentDir, name)
+                    if (newDir.exists()) {
+                        Toast.makeText(this, "Folder already exists", Toast.LENGTH_SHORT).show()
+                    } else if (newDir.mkdirs()) {
+                        Toast.makeText(this, "Folder created", Toast.LENGTH_SHORT).show()
+                        loadFiles()
+                    } else {
+                        Toast.makeText(this, "Failed to create folder", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -345,7 +495,106 @@ class FileListActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun setupBatchBar() {
+        findViewById<TextView>(R.id.batchCopy).setOnClickListener {
+            val files = adapter.getSelectedFiles()
+            if (files.isNotEmpty()) {
+                Toast.makeText(this, "${files.size} items copied. Open destination and Paste.", Toast.LENGTH_LONG).show()
+                batchClipboard = files
+                batchClipboardCut = false
+                exitSelectionMode()
+            }
+        }
+        findViewById<TextView>(R.id.batchMove).setOnClickListener {
+            val files = adapter.getSelectedFiles()
+            if (files.isNotEmpty()) {
+                Toast.makeText(this, "${files.size} items ready to move. Open destination and Paste.", Toast.LENGTH_LONG).show()
+                batchClipboard = files
+                batchClipboardCut = true
+                exitSelectionMode()
+            }
+        }
+        findViewById<TextView>(R.id.batchCompress).setOnClickListener {
+            val files = adapter.getSelectedFiles()
+            if (files.isNotEmpty()) {
+                Toast.makeText(this, "Compressing ${files.size} items...", Toast.LENGTH_SHORT).show()
+                Thread {
+                    val zipFile = File(currentDir, "Archive_${System.currentTimeMillis()}.zip")
+                    val success = ZipManager.compressMultipleToZip(files, zipFile)
+                    runOnUiThread {
+                        if (success) {
+                            Toast.makeText(this, "Compressed to ${zipFile.name}", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Compression failed", Toast.LENGTH_SHORT).show()
+                        }
+                        exitSelectionMode()
+                    }
+                }.start()
+            }
+        }
+        findViewById<TextView>(R.id.batchShare).setOnClickListener {
+            val files = adapter.getSelectedFiles()
+            if (files.isNotEmpty()) shareMultiple(files)
+            exitSelectionMode()
+        }
+        findViewById<TextView>(R.id.batchDelete).setOnClickListener {
+            val files = adapter.getSelectedFiles()
+            if (files.isNotEmpty()) {
+                AlertDialog.Builder(this)
+                    .setTitle("Delete ${files.size} items")
+                    .setMessage("Move selected items to Recently Deleted?")
+                    .setPositiveButton("Delete") { _, _ ->
+                        files.forEach { TrashManager.moveToTrash(this, it) }
+                        Toast.makeText(this, "Moved to Recently Deleted", Toast.LENGTH_SHORT).show()
+                        exitSelectionMode()
+                        loadFiles()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
+    }
+
+    private fun enterSelectionMode() {
+        adapter.setSelectionMode(true)
+        batchBar.visibility = View.VISIBLE
+    }
+
+    private fun exitSelectionMode() {
+        adapter.setSelectionMode(false)
+        batchBar.visibility = View.GONE
+        loadFiles()
+    }
+
+    private fun shareMultiple(files: List<File>) {
+        try {
+            val uris = ArrayList<android.net.Uri>()
+            for (f in files) {
+                uris.add(FileProvider.getUriForFile(this, "$packageName.fileprovider", f))
+            }
+            val intent = Intent(Intent.ACTION_SEND_MULTIPLE)
+            intent.type = "*/*"
+            intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(Intent.createChooser(intent, "Share via"))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Cannot share files", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun pasteClipboard() {
+        if (batchClipboard != null) {
+            val files = batchClipboard!!
+            var allSuccess = true
+            for (f in files) {
+                val ok = if (batchClipboardCut) FileOperations.moveFile(f, currentDir) else FileOperations.copyFile(f, currentDir)
+                if (!ok) allSuccess = false
+            }
+            Toast.makeText(this, if (allSuccess) "Done" else "Some items failed", Toast.LENGTH_SHORT).show()
+            if (batchClipboardCut) batchClipboard = null
+            loadFiles()
+            return
+        }
         val source = clipboardFile ?: return
         val success = if (clipboardIsCut) {
             FileOperations.moveFile(source, currentDir)

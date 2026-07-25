@@ -3,5 +3,18 @@
     <item
         android:id="@+id/action_paste"
         android:title="Paste"
-        android:showAsAction="always" />
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/action_select"
+        android:title="Select"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/action_sort"
+        android:title="Sort"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/action_hidden"
+        android:title="Show Hidden Files"
+        android:checkable="true"
+        android:showAsAction="never" />
 </menu>

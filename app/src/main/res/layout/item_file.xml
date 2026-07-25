@@ -6,6 +6,13 @@
     android:padding="12dp"
     android:gravity="center_vertical">
 
+    <CheckBox
+        android:id="@+id/fileCheckbox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:visibility="gone" />
+
     <ImageView
         android:id="@+id/fileIcon"
         android:layout_width="38dp"
@@ -24,7 +31,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:textColor="#FFFFFF" />
 
         <TextView
             android:id="@+id/fileInfo"
