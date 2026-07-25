@@ -12,7 +12,8 @@ import java.util.Locale
 
 class FileAdapter(
     private var items: List<FileItem>,
-    private val onClick: (FileItem) -> Unit
+    private val onClick: (FileItem) -> Unit,
+    private val onLongClick: ((FileItem) -> Unit)? = null
 ) : RecyclerView.Adapter<FileAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -37,6 +38,10 @@ class FileAdapter(
         val dateText = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(item.lastModified))
         holder.info.text = "$sizeText  •  $dateText"
         holder.itemView.setOnClickListener { onClick(item) }
+        holder.itemView.setOnLongClickListener {
+            onLongClick?.invoke(item)
+            true
+        }
     }
 
     override fun getItemCount() = items.size
