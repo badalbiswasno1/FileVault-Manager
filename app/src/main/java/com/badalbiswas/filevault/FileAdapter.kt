@@ -6,6 +6,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -30,7 +32,18 @@ class FileAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         holder.name.text = item.file.name
-        holder.icon.setImageResource(getIconForFile(item))
+        val ext = item.file.extension.lowercase()
+        val isImage = ext in setOf("jpg", "jpeg", "png", "gif", "webp", "bmp")
+        if (!item.isDirectory && isImage) {
+            val thumb = loadThumbnail(item.file)
+            if (thumb != null) {
+                holder.icon.setImageBitmap(thumb)
+            } else {
+                holder.icon.setImageResource(getIconForFile(item))
+            }
+        } else {
+            holder.icon.setImageResource(getIconForFile(item))
+        }
         val sizeText = if (item.isDirectory) "Folder" else formatSize(item.size)
         val dateText = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(item.lastModified))
         holder.info.text = "$sizeText  •  $dateText"
@@ -62,6 +75,16 @@ class FileAdapter(
             "zip", "rar", "7z" -> R.drawable.ic_file_zip
             "apk" -> R.drawable.ic_file_apk
             else -> R.drawable.ic_file_generic
+        }
+    }
+
+    private fun loadThumbnail(file: java.io.File): Bitmap? {
+        return try {
+            val options = BitmapFactory.Options()
+            options.inSampleSize = 8
+            BitmapFactory.decodeFile(file.absolutePath, options)
+        } catch (e: Exception) {
+            null
         }
     }
 

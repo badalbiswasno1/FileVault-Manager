@@ -29,6 +29,9 @@
         <activity
             android:name=".StorageStatsActivity"
             android:exported="false" />
+        <activity
+            android:name=".PreviewActivity"
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

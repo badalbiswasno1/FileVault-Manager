@@ -163,7 +163,19 @@ class FileListActivity : AppCompatActivity() {
         adapter.updateList(files)
     }
 
+    private val previewableExt = setOf(
+        "pdf", "jpg", "jpeg", "png", "gif", "webp", "bmp",
+        "txt", "log", "md", "json", "xml", "java", "kt", "py", "js", "html", "css", "gradle", "yml", "yaml", "csv"
+    )
+
     private fun openFile(file: File) {
+        val ext = file.extension.lowercase()
+        if (ext in previewableExt) {
+            val intent = Intent(this, PreviewActivity::class.java)
+            intent.putExtra("filePath", file.absolutePath)
+            startActivity(intent)
+            return
+        }
         try {
             val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
             val intent = Intent(Intent.ACTION_VIEW)
